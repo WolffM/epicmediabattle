@@ -1,0 +1,122 @@
+{
+  "nintendo": {
+    "pokemon": {
+      "gen_aliases": {
+        "1": "1",
+        "archeus": "8A"
+      },
+      "characters": [
+        {
+          "group": "1",
+          "contestants": ["Pikachu", "Charizard", "Mewtwo"]
+        },
+        {
+          "group": "archeus",
+          "contestants": ["Akari", "Rei"]
+        }
+      ],
+      "sources": [
+        {
+          "name": "bulbapedia",
+          "short_name": "bulba",
+          "site_type": "wiki",
+          "priority": 1,
+          "base_url": "https://bulbapedia.bulbagarden.net"
+        },
+        {
+          "name": "pokemon_wiki",
+          "short_name": "pkwiki",
+          "site_type": "wiki",
+          "priority": 2,
+          "base_url": "https://pokemon.fandom.com",
+          "tag_variants": [
+            {
+              "variant_name": "solo",
+              "variant_group": "niche"
+            },
+            {
+              "variant_name": "action",
+              "variant_group": "niche"
+            },
+            {
+              "variant_name": "costume",
+              "variant_group": "niche"
+            },
+            {
+              "variant_name": "artistA",
+              "variant_group": "artist"
+            },
+            {
+              "variant_name": "artistB",
+              "variant_group": "artist"
+            },
+            {
+              "variant_name": "artistTop",
+              "variant_group": "artist"
+            },
+            {
+              "variant_name": "AIBest",
+              "variant_group": "AI"
+            },
+            {
+              "variant_name": "AIRecent",
+              "variant_group": "AI"
+            }
+          ],
+          "deprecated_tag_variants": [
+            {
+              "variant_name": "outdated"
+            },
+            {
+              "variant_name": "legacy"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "shonen_jump": {
+    "dragonball": {
+      "gen_aliases": { "super": "DBS", "z": "DBZ" },
+      "characters": [
+        {
+          "group": "saiyans",
+          "contestants": ["Goku", "Vegeta", "Gohan", "Trunks"]
+        },
+        {
+          "group": "villains",
+          "contestants": ["Frieza", "Cell", "Buu"]
+        }
+      ],
+      "sources": [
+        {
+          "name": "dragonball_wiki",
+          "short_name": "dbwiki",
+          "site_type": "wiki",
+          "priority": 1,
+          "base_url": "https://dragonball.fandom.com"
+        }
+      ]
+    }
+  },
+  "wizarding_world": {
+    "harry_potter": {
+      "gen_aliases": {},
+      "characters": [
+        {
+          "group": "gryffindor",
+          "contestants": ["Harry_Potter", "Hermione_Granger", "Ron_Weasley"]
+        }
+      ],
+      "sources": [
+        {
+          "name": "hp_wiki",
+          "short_name": "hpwiki",
+          "site_type": "wiki",
+          "priority": 1,
+          "base_url": "https://harrypotter.fandom.com"
+        }
+      ]
+    }
+  }
+}

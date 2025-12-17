@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gallery - Kanto Kompetition</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/gallery.css">
+</head>
+<body class="gallery-page">
+    <div class="gallery-header">
+        <div class="header-left">
+            <a href="/" class="back-link">&larr; Arena</a>
+            <h1>Gallery</h1>
+            <span class="image-count" id="image-count">0 images</span>
+            <button id="toggle-select-mode" class="select-mode-btn">Select</button>
+            <button id="refresh-btn" class="refresh-btn" title="Refresh (bust cache)">&#x21bb;</button>
+        </div>
+        <!-- Selection toolbar (hidden by default) -->
+        <div class="selection-toolbar" id="selection-toolbar">
+            <span class="selection-count" id="selection-count">0 selected</span>
+            <button id="select-all-btn" class="toolbar-btn">Select All</button>
+            <button id="deselect-all-btn" class="toolbar-btn">Deselect All</button>
+            <button id="delete-btn" class="toolbar-btn danger">Delete</button>
+            <button id="merge-btn" class="toolbar-btn primary">Merge</button>
+        </div>
+        <div class="header-controls">
+            <div class="filter-group">
+                <label for="filter-ip">IP:</label>
+                <select id="filter-ip">
+                    <option value="">All</option>
+                    {% for ip in ips %}
+                    <option value="{{ ip }}">{{ ip }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-gen">Group:</label>
+                <select id="filter-gen">
+                    <option value="">All</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-character">Character:</label>
+                <select id="filter-character">
+                    <option value="">All</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-source">Source:</label>
+                <select id="filter-source">
+                    <option value="">All</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-variant-group">Var Group:</label>
+                <select id="filter-variant-group">
+                    <option value="">All</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-variant">Variant:</label>
+                <select id="filter-variant">
+                    <option value="">All</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="sort-by">Sort:</label>
+                <select id="sort-by">
+                    <option value="name-asc">Name A-Z</option>
+                    <option value="name-desc">Name Z-A</option>
+                    <option value="gen-asc">Group Asc</option>
+                    <option value="gen-desc">Group Desc</option>
+                    <option value="source">Source</option>
+                    <option value="wins-desc">Most Wins</option>
+                    <option value="losses-desc">Most Losses</option>
+                    <option value="battles-desc">Most Battles</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <input type="text" id="search-box" placeholder="Search name...">
+            </div>
+        </div>
+    </div>
+
+    <div class="gallery-container" id="gallery-container">
+        <!-- Cards will be inserted here by JavaScript -->
+    </div>
+
+    <!-- Selection box for drag select -->
+    <div class="selection-box" id="selection-box"></div>
+
+    <!-- Expanded overlay -->
+    <div class="expanded-overlay" id="expanded-overlay">
+        <div class="expanded-content">
+            <img id="expanded-image" src="" alt="">
+            <div class="expanded-info" id="expanded-info"></div>
+        </div>
+    </div>
+
+    <script>
+        // Gallery data from server
+        let allImages = [];
+        let filteredImages = [];
+
+        // Selection state
+        let selectMode = false;
+        let selectedPaths = new Set();
+        let lastSelectedIndex = -1;
+
+        // Drag selection state
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadImages();
+            setupEventListeners();
+        });
+
+        // Load all images from API
+        async function loadImages(bustCache = false) {
+            try {
+                let url = '/api/gallery/images';
+                if (bustCache) {
+                    url += '?_=' + Date.now();
+                }
+                const response = await fetch(url, bustCache ? { cache: 'no-store' } : {});
+                allImages = await response.json();
+                applyFilters();
+            } catch (error) {
+                console.error('Failed to load images:', error);
+            }
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Filter changes - cascading updates
+            document.getElementById('filter-ip').addEventListener('change', onFilterChange);
+            document.getElementById('filter-gen').addEventListener('change', onFilterChange);
+            document.getElementById('filter-character').addEventListener('change', onFilterChange);
+            document.getElementById('filter-source').addEventListener('change', onFilterChange);
+            document.getElementById('filter-variant-group').addEventListener('change', applyFilters);
+            document.getElementById('filter-variant').addEventListener('change', applyFilters);
+            document.getElementById('sort-by').addEventListener('change', applyFilters);
+
+            // Search with debounce
+            let searchTimeout;
+            document.getElementById('search-box').addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(applyFilters, 300);
+            });
+
+            // Expanded overlay close
+            document.getElementById('expanded-overlay').addEventListener('click', (e) => {
+                if (e.target.id === 'expanded-overlay') {
+                    closeExpanded();
+                }
+            });
+
+            // ESC to close expanded or exit select mode
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    if (document.getElementById('expanded-overlay').classList.contains('visible')) {
+                        closeExpanded();
+                    } else if (selectMode) {
+                        toggleSelectMode();
+                    }
+                }
+            });
+
+            // Selection mode toggle
+            document.getElementById('toggle-select-mode').addEventListener('click', toggleSelectMode);
+
+            // Refresh button (cache bust)
+            document.getElementById('refresh-btn').addEventListener('click', async () => {
+                const btn = document.getElementById('refresh-btn');
+                const countEl = document.getElementById('image-count');
+                btn.classList.add('spinning');
+                btn.disabled = true;
+                countEl.textContent = 'Refreshing...';
+                try {
+                    await loadImages(true);
+                    countEl.style.color = '#00ff88';
+                    setTimeout(() => { countEl.style.color = ''; }, 1000);
+                } finally {
+                    btn.classList.remove('spinning');
+                    btn.disabled = false;
+                }
+            });
+
+            // Selection toolbar buttons
+            document.getElementById('select-all-btn').addEventListener('click', selectAll);
+            document.getElementById('deselect-all-btn').addEventListener('click', deselectAll);
+            document.getElementById('delete-btn').addEventListener('click', deleteSelected);
+            document.getElementById('merge-btn').addEventListener('click', mergeSelected);
+
+            // Drag selection on gallery container
+            const container = document.getElementById('gallery-container');
+            container.addEventListener('mousedown', onDragStart);
+            document.addEventListener('mousemove', onDragMove);
+            document.addEventListener('mouseup', onDragEnd);
+        }
+
+        // Toggle select mode
+        function toggleSelectMode() {
+            selectMode = !selectMode;
+            document.body.classList.toggle('select-mode', selectMode);
+            document.getElementById('toggle-select-mode').textContent = selectMode ? 'Cancel' : 'Select';
+            document.getElementById('toggle-select-mode').classList.toggle('active', selectMode);
+
+            if (!selectMode) {
+                deselectAll();
+            }
+            updateSelectionToolbar();
+        }
+
+        // Update selection toolbar visibility and count
+        function updateSelectionToolbar() {
+            const toolbar = document.getElementById('selection-toolbar');
+            const count = document.getElementById('selection-count');
+
+            toolbar.classList.toggle('visible', selectMode);
+            count.textContent = `${selectedPaths.size} selected`;
+
+            // Enable/disable action buttons based on selection
+            document.getElementById('delete-btn').disabled = selectedPaths.size === 0;
+            document.getElementById('merge-btn').disabled = selectedPaths.size < 2;
+        }
+
+        // Select all visible cards
+        function selectAll() {
+            filteredImages.forEach(img => selectedPaths.add(img.path));
+            updateCardSelections();
+            updateSelectionToolbar();
+        }
+
+        // Deselect all
+        function deselectAll() {
+            selectedPaths.clear();
+            lastSelectedIndex = -1;
+            updateCardSelections();
+            updateSelectionToolbar();
+        }
+
+        // Update visual selection state of all cards
+        function updateCardSelections() {
+            document.querySelectorAll('.gallery-card').forEach(card => {
+                const isSelected = selectedPaths.has(card.dataset.path);
+                card.classList.toggle('selected', isSelected);
+                const checkbox = card.querySelector('.card-checkbox');
+                if (checkbox) checkbox.checked = isSelected;
+            });
+        }
+
+        // Handle card click in select mode
+        function handleCardClick(e, img, index, imgSrc) {
+            if (!selectMode) {
+                // Normal mode - expand on click
+                expandCard(img, imgSrc);
+                return;
+            }
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (e.shiftKey && lastSelectedIndex >= 0) {
+                // Shift+click: range select
+                const start = Math.min(lastSelectedIndex, index);
+                const end = Math.max(lastSelectedIndex, index);
+                for (let i = start; i <= end; i++) {
+                    selectedPaths.add(filteredImages[i].path);
+                }
+            } else if (e.ctrlKey || e.metaKey) {
+                // Ctrl+click: toggle single without affecting others
+                if (selectedPaths.has(img.path)) {
+                    selectedPaths.delete(img.path);
+                } else {
+                    selectedPaths.add(img.path);
+                }
+            } else {
+                // Normal click: toggle single
+                if (selectedPaths.has(img.path)) {
+                    selectedPaths.delete(img.path);
+                } else {
+                    selectedPaths.add(img.path);
+                }
+            }
+
+            lastSelectedIndex = index;
+            updateCardSelections();
+            updateSelectionToolbar();
+        }
+
+        // Drag selection handlers
+        function onDragStart(e) {
+            if (!selectMode) return;
+            if (e.target.closest('.gallery-card')) return; // Don't start drag on cards
+
+            isDragging = true;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+
+            const box = document.getElementById('selection-box');
+            box.style.left = e.clientX + 'px';
+            box.style.top = e.clientY + 'px';
+            box.style.width = '0';
+            box.style.height = '0';
+            box.classList.add('visible');
+        }
+
+        function onDragMove(e) {
+            if (!isDragging) return;
+
+            const box = document.getElementById('selection-box');
+            const x = Math.min(e.clientX, dragStartX);
+            const y = Math.min(e.clientY, dragStartY);
+            const w = Math.abs(e.clientX - dragStartX);
+            const h = Math.abs(e.clientY - dragStartY);
+
+            box.style.left = x + 'px';
+            box.style.top = y + 'px';
+            box.style.width = w + 'px';
+            box.style.height = h + 'px';
+
+            // Highlight cards within box
+            const boxRect = box.getBoundingClientRect();
+            document.querySelectorAll('.gallery-card').forEach(card => {
+                const cardRect = card.getBoundingClientRect();
+                const intersects = !(cardRect.right < boxRect.left ||
+                                   cardRect.left > boxRect.right ||
+                                   cardRect.bottom < boxRect.top ||
+                                   cardRect.top > boxRect.bottom);
+                card.classList.toggle('drag-hover', intersects);
+            });
+        }
+
+        function onDragEnd(e) {
+            if (!isDragging) return;
+            isDragging = false;
+
+            const box = document.getElementById('selection-box');
+            const boxRect = box.getBoundingClientRect();
+
+            // Select all cards within the box
+            document.querySelectorAll('.gallery-card').forEach(card => {
+                card.classList.remove('drag-hover');
+                const cardRect = card.getBoundingClientRect();
+                const intersects = !(cardRect.right < boxRect.left ||
+                                   cardRect.left > boxRect.right ||
+                                   cardRect.bottom < boxRect.top ||
+                                   cardRect.top > boxRect.bottom);
+                if (intersects && boxRect.width > 5 && boxRect.height > 5) {
+                    selectedPaths.add(card.dataset.path);
+                }
+            });
+
+            box.classList.remove('visible');
+            updateCardSelections();
+            updateSelectionToolbar();
+        }
+
+        // Delete selected images
+        async function deleteSelected() {
+            if (selectedPaths.size === 0) return;
+
+            const count = selectedPaths.size;
+            if (!confirm(`Delete ${count} image(s)? This cannot be undone.`)) return;
+
+            try {
+                const response = await fetch('/api/gallery/delete-bulk', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paths: Array.from(selectedPaths) })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    alert(`Deleted ${result.deleted} image(s)`);
+                    deselectAll();
+                    await loadImages();
+                } else {
+                    const error = await response.json();
+                    alert('Delete failed: ' + error.detail);
+                }
+            } catch (error) {
+                console.error('Delete failed:', error);
+                alert('Delete failed: ' + error.message);
+            }
+        }
+
+        // Merge selected images
+        async function mergeSelected() {
+            if (selectedPaths.size < 2) return;
+
+            const paths = Array.from(selectedPaths);
+            const count = paths.length;
+
+            if (!confirm(`Merge ${count} images? Battle records will be combined and duplicate files deleted.`)) return;
+
+            try {
+                const response = await fetch('/api/gallery/merge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paths })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    alert(`Merged ${count} images into: ${result.surviving_path.split(/[/\\]/).pop()}`);
+                    deselectAll();
+                    await loadImages();
+                } else {
+                    const error = await response.json();
+                    alert('Merge failed: ' + error.detail);
+                }
+            } catch (error) {
+                console.error('Merge failed:', error);
+                alert('Merge failed: ' + error.message);
+            }
+        }
+
+        // Handle filter change - update cascading dropdowns
+        async function onFilterChange() {
+            const ip = document.getElementById('filter-ip').value;
+            const gen = document.getElementById('filter-gen').value;
+            const character = document.getElementById('filter-character').value;
+            const source = document.getElementById('filter-source').value;
+
+            if (ip) {
+                try {
+                    // Build query params for cascading options
+                    const params = new URLSearchParams();
+                    params.append('scope_ip', ip);
+                    if (gen) params.append('scope_group', gen);
+                    if (character) params.append('scope_character', character);
+                    if (source) params.append('scope_source', source);
+
+                    const response = await fetch(`/api/options?${params.toString()}`);
+                    const options = await response.json();
+
+                    updateDropdown('filter-gen', options.groups);
+                    updateDropdown('filter-character', options.characters);
+                    updateDropdown('filter-source', options.sources);
+                    updateDropdown('filter-variant-group', options.variant_groups);
+                    updateDropdown('filter-variant', options.variants);
+                } catch (error) {
+                    console.error('Failed to load options:', error);
+                }
+            } else {
+                // Clear all dropdowns
+                updateDropdown('filter-gen', []);
+                updateDropdown('filter-character', []);
+                updateDropdown('filter-source', []);
+                updateDropdown('filter-variant-group', []);
+                updateDropdown('filter-variant', []);
+            }
+
+            applyFilters();
+        }
+
+        // Update dropdown options
+        function updateDropdown(id, options, prefix = '') {
+            const select = document.getElementById(id);
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">All</option>';
+
+            options.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt;
+                option.textContent = prefix + opt;
+                if (opt === currentValue) option.selected = true;
+                select.appendChild(option);
+            });
+        }
+
+        // Apply filters and sort
+        function applyFilters() {
+            const ip = document.getElementById('filter-ip').value.toLowerCase();
+            const gen = document.getElementById('filter-gen').value.toLowerCase();
+            const character = document.getElementById('filter-character').value.toLowerCase();
+            const source = document.getElementById('filter-source').value.toLowerCase();
+            const variantGroup = document.getElementById('filter-variant-group').value.toLowerCase();
+            const variant = document.getElementById('filter-variant').value.toLowerCase();
+            const search = document.getElementById('search-box').value.toLowerCase();
+            const sortBy = document.getElementById('sort-by').value;
+
+            // Filter
+            filteredImages = allImages.filter(img => {
+                if (ip && img.ip.toLowerCase() !== ip) return false;
+                if (gen && img.group_name.toLowerCase() !== gen) return false;
+                if (character && img.name.toLowerCase() !== character) return false;
+                if (source && img.source.toLowerCase() !== source) return false;
+                if (variantGroup && (img.variant_group || '').toLowerCase() !== variantGroup) return false;
+                if (variant && (img.variant || '').toLowerCase() !== variant) return false;
+                if (search && !img.name.toLowerCase().includes(search)) return false;
+                return true;
+            });
+
+            // Sort
+            filteredImages.sort((a, b) => {
+                switch (sortBy) {
+                    case 'name-asc':
+                        return a.name.localeCompare(b.name);
+                    case 'name-desc':
+                        return b.name.localeCompare(a.name);
+                    case 'gen-asc':
+                        return compareGen(a.group_name, b.group_name);
+                    case 'gen-desc':
+                        return compareGen(b.group_name, a.group_name);
+                    case 'source':
+                        return a.source.localeCompare(b.source);
+                    case 'wins-desc':
+                        return (b.stats?.wins || 0) - (a.stats?.wins || 0);
+                    case 'losses-desc':
+                        return (b.stats?.losses || 0) - (a.stats?.losses || 0);
+                    case 'battles-desc':
+                        return (b.stats?.total_battles || 0) - (a.stats?.total_battles || 0);
+                    default:
+                        return 0;
+                }
+            });
+
+            renderGallery();
+        }
+
+        // Compare generation strings (handle numbers and text like 'archeus')
+        function compareGen(a, b) {
+            const numA = parseInt(a);
+            const numB = parseInt(b);
+            if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+            if (!isNaN(numA)) return -1;
+            if (!isNaN(numB)) return 1;
+            return a.localeCompare(b);
+        }
+
+        // Render gallery cards
+        function renderGallery() {
+            const container = document.getElementById('gallery-container');
+            container.innerHTML = '';
+
+            document.getElementById('image-count').textContent = `${filteredImages.length} images`;
+
+            filteredImages.forEach((img, index) => {
+                const card = createCard(img, index);
+                container.appendChild(card);
+            });
+        }
+
+        // Create a single card element
+        function createCard(img, index) {
+            const card = document.createElement('div');
+            card.className = 'gallery-card';
+            if (selectedPaths.has(img.path)) card.classList.add('selected');
+            card.dataset.path = img.path;
+
+            const imgSrc = `/images/${img.universe}/${img.ip}/${img.group_name}/${img.filename}`;
+
+            card.innerHTML = `
+                <div class="card-checkbox-wrapper">
+                    <input type="checkbox" class="card-checkbox" ${selectedPaths.has(img.path) ? 'checked' : ''}>
+                </div>
+                <div class="card-image">
+                    <img src="${imgSrc}" alt="${img.name}" loading="lazy">
+                </div>
+                <div class="card-info">
+                    <div class="card-name">${img.name}</div>
+                    <div class="card-meta">
+                        <span class="card-gen">${img.display_group || img.group_name}</span>
+                        <span class="card-source">${img.source}</span>
+                        ${img.variant ? `<span class="card-variant">${img.variant}</span>` : ''}
+                        ${img.variant_group ? `<span class="card-variant">[${img.variant_group}]</span>` : ''}
+                    </div>
+                    <div class="card-stats">
+                        <span class="stat-wins">W: ${img.stats?.wins || 0}</span>
+                        <span class="stat-losses">L: ${img.stats?.losses || 0}</span>
+                    </div>
+                </div>
+            `;
+
+            // Click handler
+            card.addEventListener('click', (e) => handleCardClick(e, img, index, imgSrc));
+
+            // Prevent checkbox from double-triggering
+            card.querySelector('.card-checkbox').addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleCardClick(e, img, index, imgSrc);
+            });
+
+            return card;
+        }
+
+        // Expand card to full screen overlay (click only, no hover)
+        function expandCard(img, imgSrc) {
+            const overlay = document.getElementById('expanded-overlay');
+            const expandedImg = document.getElementById('expanded-image');
+            const expandedInfo = document.getElementById('expanded-info');
+
+            expandedImg.src = imgSrc;
+            expandedInfo.innerHTML = `
+                <h2>${img.name}</h2>
+                <p>${img.display_group || img.group_name} | ${img.source}${img.variant ? ` | ${img.variant}` : ''}</p>
+                <p class="expanded-stats">
+                    <span class="stat-wins">Wins: ${img.stats?.wins || 0}</span>
+                    <span class="stat-losses">Losses: ${img.stats?.losses || 0}</span>
+                    <span class="stat-total">Total: ${img.stats?.total_battles || 0}</span>
+                </p>
+                <p class="expanded-path">${img.filename}</p>
+            `;
+
+            overlay.classList.add('visible');
+        }
+
+        // Close expanded view
+        function closeExpanded() {
+            const overlay = document.getElementById('expanded-overlay');
+            overlay.classList.remove('visible', 'locked');
+        }
+    </script>
+</body>
+</html>

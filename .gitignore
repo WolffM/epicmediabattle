@@ -1,0 +1,47 @@
+# ===== SENSITIVE DATA =====
+Input/ip_sources.json
+Input/booru_character_aliases.json
+
+# Cookies - ignore all except README
+Input/cookies/*
+!Input/cookies/README.md
+
+# Keep example files
+!Input/ip_sources.example.json
+
+# ===== GENERATED OUTPUT =====
+Output/
+
+# ===== PYTHON =====
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+.env
+.venv
+
+# ===== IDE =====
+.vscode/
+.idea/
+.claude/
+*.swp
+*~
+.DS_Store
+
+# ===== TESTING/LINTING =====
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ===== LOGS =====
+*.log
+*.log.*
+
+# ===== DATABASE =====
+*.db
+
+# ===== WINDOWS ARTIFACTS =====
+nul

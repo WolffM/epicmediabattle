@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kanto Kompetition - Arena Setup</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="setup-container">
+        <div class="title-row">
+            <h1>Kanto Kompetition Arena</h1>
+            <a href="/gallery" class="gallery-link">Gallery</a>
+        </div>
+        <p class="subtitle">Configure your battle parameters</p>
+
+        <form id="setup-form" action="/battle" method="get">
+            <div class="form-section">
+                <h2>Scope Selection</h2>
+                <p class="hint">Select scope level and filters. Lower scope = more specific matchups.</p>
+
+                <div class="form-group">
+                    <label for="scope_level">Scope Level</label>
+                    <select id="scope_level" name="scope_level" required>
+                        <option value="ip">IP (All)</option>
+                        <option value="group" class="group-option">Group (Generation)</option>
+                        <option value="character">Character</option>
+                        <option value="source">Source</option>
+                        <option value="variant">Variant</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="scope_universe">Universe</label>
+                    <select id="scope_universe" name="scope_universe">
+                        <option value="">-- All Universes --</option>
+                        {% for universe in universes %}
+                        <option value="{{ universe }}">{{ universe }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="scope_ip">IP</label>
+                    <select id="scope_ip" name="scope_ip" required>
+                        <option value="">-- Select IP --</option>
+                        {% for ip in ips %}
+                        <option value="{{ ip }}">{{ ip }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group" id="group-container" style="display: none;">
+                    <label for="scope_group">Group (Generation)</label>
+                    <select id="scope_group" name="scope_group">
+                        <option value="">-- All Groups --</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="character-container" style="display: none;">
+                    <label for="scope_character">Character</label>
+                    <select id="scope_character" name="scope_character">
+                        <option value="">-- All Characters --</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="source-container" style="display: none;">
+                    <label for="scope_source">Source</label>
+                    <select id="scope_source" name="scope_source">
+                        <option value="">-- All Sources --</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="variant-container" style="display: none;">
+                    <label for="scope_variant">Variant</label>
+                    <select id="scope_variant" name="scope_variant">
+                        <option value="">-- All Variants --</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>Match Constraints</h2>
+                <p class="hint">Ensure matched images share the same source/variant.</p>
+
+                <div class="checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="match_source" name="match_source" value="true">
+                        <span>Match Source</span>
+                        <span class="checkbox-hint">Both images must be from the same source</span>
+                    </label>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="match_variant_group" name="match_variant_group" value="true">
+                        <span>Match Variant Group</span>
+                        <span class="checkbox-hint">Both images must be from same group (AI, artist, niche)</span>
+                    </label>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="match_variant" name="match_variant" value="true">
+                        <span>Match Variant</span>
+                        <span class="checkbox-hint">Both images must be the same variant type (more specific)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div id="image-count" class="image-count"></div>
+                <button type="submit" id="start-btn" class="btn-primary" disabled>
+                    Start Battle
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const scopeLevel = document.getElementById('scope_level');
+        const scopeUniverse = document.getElementById('scope_universe');
+        const scopeIp = document.getElementById('scope_ip');
+        const scopeGroup = document.getElementById('scope_group');
+        const scopeCharacter = document.getElementById('scope_character');
+        const scopeSource = document.getElementById('scope_source');
+        const scopeVariant = document.getElementById('scope_variant');
+        const matchSource = document.getElementById('match_source');
+        const matchVariantGroup = document.getElementById('match_variant_group');
+        const matchVariant = document.getElementById('match_variant');
+        const imageCount = document.getElementById('image-count');
+        const startBtn = document.getElementById('start-btn');
+        const groupOption = scopeLevel.querySelector('.group-option');
+
+        // Track whether current IP has groups
+        let currentIpHasGroups = true;
+
+        // LocalStorage key
+        const STORAGE_KEY = 'arena_settings';
+
+        // Save settings to localStorage
+        function saveSettings() {
+            const settings = {
+                scope_level: scopeLevel.value,
+                scope_universe: scopeUniverse.value,
+                scope_ip: scopeIp.value,
+                scope_group: scopeGroup.value,
+                scope_character: scopeCharacter.value,
+                scope_source: scopeSource.value,
+                scope_variant: scopeVariant.value,
+                match_source: matchSource.checked,
+                match_variant_group: matchVariantGroup.checked,
+                match_variant: matchVariant.checked
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+        }
+
+        // Load settings from localStorage
+        function loadSettings() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch (e) {
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        // Show/hide fields based on scope level and IP groups
+        // Source is always visible (can filter by source at any level)
+        // Variant is always visible (can filter by variant at any level)
+        function updateFieldVisibility() {
+            const level = scopeLevel.value;
+            const levels = ['ip', 'group', 'character', 'source', 'variant'];
+            const levelIndex = levels.indexOf(level);
+
+            // Show/hide the group option in scope level dropdown
+            if (groupOption) {
+                groupOption.style.display = currentIpHasGroups ? '' : 'none';
+                // If IP has no groups and user had 'group' selected, switch to 'ip'
+                if (!currentIpHasGroups && level === 'group') {
+                    scopeLevel.value = 'ip';
+                }
+            }
+
+            // Group container only shown if IP has groups AND scope level requires it
+            const showGroups = currentIpHasGroups && levelIndex >= 1;
+            document.getElementById('group-container').style.display =
+                showGroups ? 'block' : 'none';
+
+            // Character shown at level 2+ (index adjusted if no groups)
+            const effectiveLevelIndex = currentIpHasGroups ? levelIndex : (level === 'ip' ? 1 : levelIndex);
+            document.getElementById('character-container').style.display =
+                levelIndex >= 2 || (!currentIpHasGroups && level !== 'ip') ? 'block' : 'none';
+
+            // Source and variant are always available as filters
+            document.getElementById('source-container').style.display = 'block';
+            document.getElementById('variant-container').style.display = 'block';
+
+            // Clear values for hidden hierarchical fields only
+            if (!showGroups) scopeGroup.value = '';
+            if (levelIndex < 2 && currentIpHasGroups) scopeCharacter.value = '';
+        }
+
+        // Fetch options from API
+        async function fetchOptions() {
+            const params = new URLSearchParams();
+            if (scopeUniverse.value) params.append('scope_universe', scopeUniverse.value);
+            if (scopeIp.value) params.append('scope_ip', scopeIp.value);
+            if (scopeGroup.value) params.append('scope_group', scopeGroup.value);
+            if (scopeCharacter.value) params.append('scope_character', scopeCharacter.value);
+            if (scopeSource.value) params.append('scope_source', scopeSource.value);
+
+            const response = await fetch('/api/options?' + params.toString());
+            return await response.json();
+        }
+
+        // Update dropdown options
+        async function updateOptions() {
+            const options = await fetchOptions();
+
+            // Update IPs (filtered by universe)
+            const currentIp = scopeIp.value;
+            scopeIp.innerHTML = '<option value="">-- Select IP --</option>';
+            options.ips.forEach(ip => {
+                scopeIp.innerHTML += `<option value="${ip}" ${ip === currentIp ? 'selected' : ''}>${ip}</option>`;
+            });
+
+            // Update whether current IP has groups
+            currentIpHasGroups = options.has_groups !== false;  // Default to true if not set
+            updateFieldVisibility();
+
+            // Update groups (only if IP has groups)
+            const currentGroup = scopeGroup.value;
+            scopeGroup.innerHTML = '<option value="">-- All Groups --</option>';
+            options.groups.forEach(g => {
+                // Show group name, use "Gen X" only for numeric groups
+                const label = /^\d+$/.test(g) ? `Gen ${g}` : g;
+                scopeGroup.innerHTML += `<option value="${g}" ${g === currentGroup ? 'selected' : ''}>${label}</option>`;
+            });
+
+            // Update characters
+            const currentChar = scopeCharacter.value;
+            scopeCharacter.innerHTML = '<option value="">-- All Characters --</option>';
+            options.characters.forEach(c => {
+                scopeCharacter.innerHTML += `<option value="${c}" ${c === currentChar ? 'selected' : ''}>${c}</option>`;
+            });
+
+            // Update sources
+            const currentSource = scopeSource.value;
+            scopeSource.innerHTML = '<option value="">-- All Sources --</option>';
+            options.sources.forEach(s => {
+                scopeSource.innerHTML += `<option value="${s}" ${s === currentSource ? 'selected' : ''}>${s}</option>`;
+            });
+
+            // Update variants
+            const currentVariant = scopeVariant.value;
+            scopeVariant.innerHTML = '<option value="">-- All Variants --</option>';
+            options.variants.forEach(v => {
+                scopeVariant.innerHTML += `<option value="${v}" ${v === currentVariant ? 'selected' : ''}>${v}</option>`;
+            });
+
+            updateImageCount();
+        }
+
+        // Update image count display
+        async function updateImageCount() {
+            if (!scopeIp.value) {
+                imageCount.textContent = '';
+                startBtn.disabled = true;
+                return;
+            }
+
+            const params = new URLSearchParams();
+            params.append('scope_level', scopeLevel.value);
+            params.append('scope_ip', scopeIp.value);
+            if (scopeGroup.value) params.append('scope_group', scopeGroup.value);
+            if (scopeCharacter.value) params.append('scope_character', scopeCharacter.value);
+            if (scopeSource.value) params.append('scope_source', scopeSource.value);
+            if (scopeVariant.value) params.append('scope_variant', scopeVariant.value);
+            params.append('match_source', matchSource.checked);
+            params.append('match_variant', matchVariant.checked);
+
+            // For now, just enable the button if IP is selected
+            // Could add a count endpoint later
+            imageCount.textContent = 'Ready to battle!';
+            startBtn.disabled = false;
+        }
+
+        // Event listeners - save settings on every change
+        scopeLevel.addEventListener('change', () => {
+            updateFieldVisibility();
+            updateImageCount();
+            saveSettings();
+        });
+
+        scopeUniverse.addEventListener('change', () => {
+            // Reset IP when universe changes
+            scopeIp.value = '';
+            updateOptions();
+            saveSettings();
+        });
+
+        scopeIp.addEventListener('change', () => {
+            updateOptions();
+            saveSettings();
+        });
+
+        scopeGroup.addEventListener('change', () => {
+            updateOptions();
+            saveSettings();
+        });
+
+        scopeCharacter.addEventListener('change', () => {
+            updateOptions();
+            saveSettings();
+        });
+
+        scopeSource.addEventListener('change', () => {
+            updateOptions();
+            saveSettings();
+        });
+
+        scopeVariant.addEventListener('change', () => {
+            updateImageCount();
+            saveSettings();
+        });
+
+        matchSource.addEventListener('change', () => {
+            updateImageCount();
+            saveSettings();
+        });
+
+        matchVariantGroup.addEventListener('change', () => {
+            // match_variant_group and match_variant are mutually exclusive
+            if (matchVariantGroup.checked) {
+                matchVariant.checked = false;
+            }
+            updateImageCount();
+            saveSettings();
+        });
+
+        matchVariant.addEventListener('change', () => {
+            // match_variant and match_variant_group are mutually exclusive
+            if (matchVariant.checked) {
+                matchVariantGroup.checked = false;
+            }
+            updateImageCount();
+            saveSettings();
+        });
+
+        // Restore saved settings on page load
+        async function restoreSettings() {
+            const settings = loadSettings();
+            if (!settings) {
+                updateFieldVisibility();
+                return;
+            }
+
+            // Restore scope level first
+            if (settings.scope_level) {
+                scopeLevel.value = settings.scope_level;
+            }
+            updateFieldVisibility();
+
+            // Restore checkboxes
+            matchSource.checked = settings.match_source || false;
+            matchVariantGroup.checked = settings.match_variant_group || false;
+            matchVariant.checked = settings.match_variant || false;
+
+            // Restore universe first, then IP
+            if (settings.scope_universe) {
+                scopeUniverse.value = settings.scope_universe;
+                await updateOptions();
+            }
+
+            // Restore IP and fetch options
+            if (settings.scope_ip) {
+                scopeIp.value = settings.scope_ip;
+                await updateOptions();
+
+                // After options loaded, restore cascading selections
+                if (settings.scope_group) {
+                    scopeGroup.value = settings.scope_group;
+                    await updateOptions();
+                }
+                if (settings.scope_character) {
+                    scopeCharacter.value = settings.scope_character;
+                    await updateOptions();
+                }
+                if (settings.scope_source) {
+                    scopeSource.value = settings.scope_source;
+                    await updateOptions();
+                }
+                if (settings.scope_variant) {
+                    scopeVariant.value = settings.scope_variant;
+                }
+                updateImageCount();
+            }
+        }
+
+        // Initial setup - restore saved settings
+        restoreSettings();
+    </script>
+</body>
+</html>

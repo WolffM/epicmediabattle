@@ -1,0 +1,112 @@
+[tool.ruff]
+# Exclude common directories
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "*.pyc",
+    "build",
+    "dist",
+]
+
+# Same as Black's default line length
+line-length = 120
+
+# Python version
+target-version = "py39"
+
+[tool.ruff.lint]
+# Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
+# Add isort (I), pyupgrade (UP), and other useful rules
+select = [
+    "E",      # pycodestyle errors
+    "F",      # pyflakes
+    "I",      # isort
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "SIM",    # flake8-simplify
+    # Code quality rules:
+    "C4",     # flake8-comprehensions - unnecessary list/dict comprehensions
+    "DTZ",    # flake8-datetimez - datetime timezone issues
+    "T10",    # flake8-debugger - leftover debugger statements
+    "T20",    # flake8-print - print statements in code
+    "PTH",    # flake8-use-pathlib - prefer pathlib over os.path
+    "RUF",    # Ruff-specific rules - catch common mistakes
+    "PERF",   # Perflint - performance anti-patterns
+    "FURB",   # refurb - modernize code
+    "LOG",    # flake8-logging - logging issues
+    "G",      # flake8-logging-format - logging format strings
+]
+
+ignore = [
+    "E501",   # line too long (black handles this)
+    "B008",   # do not perform function calls in argument defaults
+    "UP006",  # non-pep585-annotation (keep Dict, List for older Python)
+    "UP035",  # deprecated-import (keep typing imports for compatibility)
+    "T201",   # print found - we use print for CLI output intentionally
+    "PTH123", # open() - pathlib not always cleaner
+    "RUF013", # implicit Optional - valid Python, fix incrementally
+    "G004",   # f-string in logging - performance cost negligible for our use
+    "DTZ005", # datetime without timezone - local time is fine for logs
+    "PERF203", # try-except in loop - necessary for user input loops
+    "PERF401", # list comprehension - minor performance, readability tradeoff
+    "PERF102", # .items() vs .values() - minor performance
+    "RUF002",  # ambiguous unicode in docstrings - intentional × for math
+    "RUF003",  # ambiguous unicode in comments - intentional × for math
+    "RUF022",  # __all__ not sorted - not worth the churn
+    "SIM102",  # nested if - readability tradeoff
+    "SIM103",  # return condition directly - readability tradeoff
+    # PTH rules - defer pathlib migration to future refactor
+    "PTH100", # os.path.abspath -> Path.resolve()
+    "PTH103", # os.makedirs -> Path.mkdir(parents=True)
+    "PTH104", # os.rename -> Path.rename()
+    "PTH107", # os.remove -> Path.unlink()
+    "PTH110", # os.path.exists -> Path.exists()
+    "PTH112", # os.path.isdir -> Path.is_dir()
+    "PTH113", # os.path.isfile -> Path.is_file()
+    "PTH118", # os.path.join -> Path /
+    "PTH119", # os.path.basename -> Path.name
+    "PTH120", # os.path.dirname -> Path.parent
+    "PTH122", # os.path.splitext -> Path.suffix
+    "PTH202", # os.path.getsize -> Path.stat().st_size
+    "PTH207", # glob.glob -> Path.glob()
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Allow unused imports in __init__.py files
+"__init__.py" = ["F401"]
+# Scripts that modify sys.path need imports after path modification
+"scripts/*.py" = ["E402"]
+"cli/*.py" = ["E402"]
+# database.py re-exports functions for backward compatibility
+"games/arena/database.py" = ["F401", "E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["core", "extractors", "games"]
+
+[tool.black]
+line-length = 120
+target-version = ['py39']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.git
+  | \.venv
+  | venv
+  | __pycache__
+  | build
+  | dist
+)/
+'''
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = false
+warn_unused_ignores = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+ignore_missing_imports = true
+no_implicit_optional = false
+# Strict type checking is a future goal - start with basic checks

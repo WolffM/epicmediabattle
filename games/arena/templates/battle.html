@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Battle Arena</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="battle-page">
+    <div class="battle-header">
+        <a href="/" class="back-link">&larr; Back to Setup</a>
+        <div class="battle-info">
+            <span class="scope-badge">{{ scope_level }}: {{ scope_ip }}{% if scope_group %} / Gen {{ scope_group }}{% endif %}{% if scope_character %} / {{ scope_character }}{% endif %}</span>
+            {% if match_source %}<span class="constraint-badge">Match Source</span>{% endif %}
+            {% if match_variant_group %}<span class="constraint-badge">Match Variant Group</span>{% endif %}
+            {% if match_variant %}<span class="constraint-badge">Match Variant</span>{% endif %}
+        </div>
+        <div class="battle-counter">
+            Battles: <span id="battle-count">0</span>
+        </div>
+    </div>
+
+    <div class="battle-container">
+        <div class="image-panel" id="panel-left">
+            <div class="panel-header">
+                <button class="reset-btn" onclick="resetView('left')">Reset View</button>
+                <span class="image-label" id="label-left">{{ img1.name }} - {{ img1.source }}{% if img1.variant %} ({{ img1.variant }}){% endif %}</span>
+                <button class="delete-btn" onclick="deleteImage('left')">Delete</button>
+            </div>
+            <div class="image-stats" id="stats-left">
+                <span class="stat-wins">W: <span id="wins-left">{{ img1.stats.wins or 0 }}</span></span>
+                <span class="stat-losses">L: <span id="losses-left">{{ img1.stats.losses or 0 }}</span></span>
+                <span class="stat-total">Total: <span id="total-left">{{ img1.stats.total_battles or 0 }}</span></span>
+            </div>
+            <div class="image-wrapper" id="wrapper-left" onclick="selectWinner('left')">
+                <img
+                    id="img-left"
+                    src="/images/{{ img1.universe }}/{{ img1.ip }}/{{ img1.group_name }}/{{ img1.filename }}"
+                    alt="{{ img1.name }}"
+                    data-path="{{ img1.path }}"
+                    draggable="false"
+                >
+            </div>
+        </div>
+
+        <div class="vs-divider">VS</div>
+
+        <div class="image-panel" id="panel-right">
+            <div class="panel-header">
+                <button class="reset-btn" onclick="resetView('right')">Reset View</button>
+                <span class="image-label" id="label-right">{{ img2.name }} - {{ img2.source }}{% if img2.variant %} ({{ img2.variant }}){% endif %}</span>
+                <button class="delete-btn" onclick="deleteImage('right')">Delete</button>
+            </div>
+            <div class="image-stats" id="stats-right">
+                <span class="stat-wins">W: <span id="wins-right">{{ img2.stats.wins or 0 }}</span></span>
+                <span class="stat-losses">L: <span id="losses-right">{{ img2.stats.losses or 0 }}</span></span>
+                <span class="stat-total">Total: <span id="total-right">{{ img2.stats.total_battles or 0 }}</span></span>
+            </div>
+            <div class="image-wrapper" id="wrapper-right" onclick="selectWinner('right')">
+                <img
+                    id="img-right"
+                    src="/images/{{ img2.universe }}/{{ img2.ip }}/{{ img2.group_name }}/{{ img2.filename }}"
+                    alt="{{ img2.name }}"
+                    data-path="{{ img2.path }}"
+                    draggable="false"
+                >
+            </div>
+        </div>
+    </div>
+
+    <div class="battle-footer">
+        <p class="hint">Click an image to select the winner, or use arrow keys (&larr; / &rarr;). Ctrl+Z to undo.</p>
+        <p class="hint">Scroll to zoom, right-click drag to pan. Delete removes image without recording a battle.</p>
+    </div>
+
+    <!-- Hidden scope data -->
+    <script>
+        const scopeData = {
+            scope_level: "{{ scope_level }}",
+            scope_universe: "{{ scope_universe }}" || null,
+            scope_ip: "{{ scope_ip }}",
+            scope_group: "{{ scope_group }}" || null,
+            scope_character: "{{ scope_character }}" || null,
+            scope_source: "{{ scope_source }}" || null,
+            scope_variant: "{{ scope_variant }}" || null,
+            match_source: {{ 'true' if match_source else 'false' }},
+            match_variant: {{ 'true' if match_variant else 'false' }},
+            match_variant_group: {{ 'true' if match_variant_group else 'false' }}
+        };
+
+        // Save current battle settings to localStorage for persistence
+        const STORAGE_KEY = 'arena_settings';
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            scope_level: scopeData.scope_level,
+            scope_universe: scopeData.scope_universe || '',
+            scope_ip: scopeData.scope_ip,
+            scope_group: scopeData.scope_group || '',
+            scope_character: scopeData.scope_character || '',
+            scope_source: scopeData.scope_source || '',
+            scope_variant: scopeData.scope_variant || '',
+            match_source: scopeData.match_source,
+            match_variant: scopeData.match_variant,
+            match_variant_group: scopeData.match_variant_group
+        }));
+    </script>
+    <script src="/static/arena.js?v=3"></script>
+</body>
+</html>
