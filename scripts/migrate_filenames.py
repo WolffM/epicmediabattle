@@ -21,7 +21,7 @@ import re
 import sqlite3
 import sys
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
@@ -32,18 +32,18 @@ OUTPUT_JSON = PROJECT_ROOT / 'output' / 'pokemon' / 'output.json'
 ARENA_DB = PROJECT_ROOT / 'Arena' / 'arena.db'
 
 
-def parse_old_filename(filename: str) -> Tuple[str, str, str, str]:
+def parse_old_filename(filename: str) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
     """
     Parse old filename format: {Name}-{source}-{count}.{ext}
 
     Returns:
-        Tuple of (name, source, count, extension)
+        Tuple of (name, source, count, extension) or (None, None, None, None) if parsing fails
     """
     # Match pattern: Name-source-count.ext
     # e.g., "Misty-bulba-1.png" -> ("Misty", "bulba", "1", ".png")
     match = re.match(r'^(.+)-([a-z0-9]+)-(\d+)(\.[a-z]+)$', filename, re.IGNORECASE)
     if match:
-        return match.groups()
+        return match.groups()  # type: ignore[return-value]
     return None, None, None, None
 
 
@@ -109,6 +109,9 @@ def migrate_filenames(dry_run: bool = True) -> Dict:
                 print(f"  [SKIP] Could not parse: {filename}")
                 files_skipped += 1
                 continue
+
+            # At this point, all values are non-None due to the guard check above
+            assert src is not None and count is not None and ext is not None
 
             # Check if already has variant in filename (already migrated)
             # Pattern with variant: Name-source-variant-count.ext
