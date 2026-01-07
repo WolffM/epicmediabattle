@@ -34,7 +34,7 @@ import sqlite3
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # Add project root to path for imports
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -210,7 +210,7 @@ def select_survivor(image_list: List[Tuple[str, str, Dict]]) -> Tuple[Dict, List
         (survivor_img, list_of_duplicate_imgs)
     """
     # Score each image
-    scored = []
+    scored: List[Dict[str, Any]] = []
     for char_key, char_name, img in image_list:
         path = img.get('path', '')
         wins = get_battle_wins(path) if path and os.path.exists(path) else 0
