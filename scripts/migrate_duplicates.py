@@ -235,7 +235,7 @@ def select_survivor(image_list: List[Tuple[str, str, Dict]]) -> Tuple[Dict, List
     # Merge metadata from duplicates into survivor if survivor is missing data
     survivor_img = survivor['img'].copy()
     for dup in duplicates:
-        dup_img = dup['img']
+        dup_img: Dict[str, Any] = dup['img']
         # If survivor has backfilled URL but duplicate has real URL, use duplicate's
         if survivor_img.get('url') == 'unknown (backfilled from disk)':
             if dup_img.get('url') and dup_img['url'] != 'unknown (backfilled from disk)':
