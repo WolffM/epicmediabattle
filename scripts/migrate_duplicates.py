@@ -57,9 +57,14 @@ def get_output_paths(ip: str) -> Tuple[Path, Path]:
 
 
 def compute_md5(file_path: str) -> Optional[str]:
-    """Compute MD5 hash of a file."""
+    """Compute MD5 hash of a file for duplicate detection (non-security use).
+    
+    MD5 is used here solely for detecting duplicate image files by comparing
+    file content. This is NOT for security purposes (authentication, integrity
+    verification, etc.), so we explicitly set usedforsecurity=False.
+    """
     try:
-        hash_md5 = hashlib.md5(usedforsecurity=False)
+        hash_md5 = hashlib.md5(usedforsecurity=False)  # nosec B324 - not for security
         with open(file_path, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_md5.update(chunk)
