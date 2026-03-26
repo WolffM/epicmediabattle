@@ -247,4 +247,3 @@ If something is unclear:
 1. Check existing code for patterns
 2. Run the tests to understand expected behavior
 3. Read the docstrings
-4. Check the [Public Release Roadmap](.claude/plans/recursive-weaving-globe.md) for planned changes
