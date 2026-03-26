@@ -6,7 +6,7 @@ An image battle and tierlist application. Pit images against each other in head-
 
 Epic Universe Battle is a full-stack application for running image comparison battles. Users select a scope (IP, character group, or individual character), and the system presents pairs of images for comparison. Battle results are tracked in a SQLite database with ELO ratings, win/loss stats, and complete battle history.
 
-**Current Status:** Internal development. See the [Public Release Roadmap](.claude/plans/recursive-weaving-globe.md) for the path to public release.
+**Current Status:** Internal development.
 
 ## Features
 
@@ -23,8 +23,8 @@ Epic Universe Battle is a full-stack application for running image comparison ba
 
 | Component | Technology |
 |-----------|------------|
-| Backend | Python 3.11+, FastAPI |
-| Frontend | Jinja2 templates, vanilla JS (React planned) |
+| Backend | Python 3.9+, FastAPI |
+| Frontend | Jinja2 templates, vanilla JS |
 | Database | SQLite |
 | Image Serving | Static file serving via FastAPI |
 
@@ -49,7 +49,8 @@ kanto_kompetition/
 │       ├── logging_config.py # Centralized logging
 │       └── tests/          # pytest test suite (68 tests)
 ├── cli/                    # Command-line tools
-│   └── fetch_images.py     # Image fetching CLI
+│   ├── fetch_images.py     # Image fetching CLI
+│   └── fetch_booru_aliases.py # Fetch character aliases from booru sites
 ├── Input/                  # Configuration (gitignored)
 │   └── ip_sources.json     # Source configuration
 ├── Output/                 # Downloaded images (gitignored)
@@ -60,7 +61,7 @@ kanto_kompetition/
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.9+
 - pip
 
 ### Installation

@@ -35,7 +35,7 @@ Instructions for AI agents working on this codebase. Follow these guidelines to 
 
 ### Python Style
 
-- **Python version**: 3.11+
+- **Python version**: 3.9+
 - **Type hints**: Use for function signatures
 - **Docstrings**: Google style for public functions
 - **Imports**: stdlib → third-party → local (separated by blank lines)
@@ -150,6 +150,13 @@ kanto_kompetition/
 │   ├── logging_config.py      # Centralized logging
 │   ├── models.py              # Pydantic models
 │   ├── admin_routes.py        # Admin endpoints
+│   ├── character_config.py    # Character configuration helpers
+│   ├── utils.py               # Arena-level utility functions
+│   ├── db_utils.py            # Database utility helpers
+│   ├── sql_helpers.py         # SQL query helpers
+│   ├── path_utils.py          # Path resolution helpers
+│   ├── server_utils.py        # Server startup helpers
+│   ├── analysis.py            # Re-exports from analysis/
 │   ├── analysis/              # Reporting tools
 │   │   ├── queries.py
 │   │   ├── reports.py
@@ -162,11 +169,14 @@ kanto_kompetition/
 │       ├── test_image_index.py
 │       └── test_config.py
 ├── cli/                       # Command-line tools
-│   └── fetch_images.py        # Image fetching CLI
+│   ├── fetch_images.py        # Image fetching CLI
+│   └── fetch_booru_aliases.py # Fetch character aliases from booru sites
 ├── scripts/                   # Migration scripts
 │   ├── migrate_filenames.py
 │   ├── migrate_duplicates.py
-│   └── backfill_battle_variants.py
+│   ├── migrate_output_paths_to_filenames.py
+│   ├── backfill_battle_variants.py
+│   └── check_unmigrated.py
 ├── Input/                     # Configuration (gitignored)
 │   └── ip_sources.json
 ├── Output/                    # Images (gitignored)
