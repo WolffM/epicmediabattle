@@ -10,7 +10,11 @@ permissions:
 
 jobs:
   analyze:
-    runs-on: ${{ fromJSON(vars.CI_RUNNER || '["self-hosted","hadoku-builder"]') }}
+    # Hosted ON PURPOSE. This repo is not a fleet member: it has no entry in
+    # hadoku_site's fleet-runner-coverage.json and zero runner registrations,
+    # so `self-hosted,hadoku-builder` here queues forever with nothing able to
+    # serve it. See allowHosted in scripts/admin/repo-policy-manifest.json.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
