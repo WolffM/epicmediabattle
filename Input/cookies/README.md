@@ -4,7 +4,7 @@ Some image sources require authentication. Place cookie files here.
 
 ## Structure
 
-```
+```text
 cookies/
 ├── <source_name>/
 │   ├── cookies.json    # Browser-exported cookies
